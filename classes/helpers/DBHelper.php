@@ -149,6 +149,8 @@ class DBHelper
         switch ($type) {
             case 'numeric':
                 return '::NUMERIC';
+            case 'integer':
+                    return '::INTEGER';
             case 'text':
                 return '::TEXT';
             default:
@@ -171,5 +173,26 @@ class DBHelper
         }
 
         return $group_concat;
+    }
+
+    public static function prepare_sql_in_query($column, $ids) {
+        if (!empty($ids)) {
+            return "$column IN (".implode(",", $ids).")";
+        } else {
+            return "$column = -1";
+        }
+    }
+
+    public static function prepare_sql_for_row_number_counting() {
+        global $CFG;
+
+        if ($CFG->dbtype == 'pgsql') {
+            $uniqueIdColumn = "ROW_NUMBER () OVER ()";
+            $uniqueIdColumn2 = "";
+        } else {
+            $uniqueIdColumn = "@rowid := @rowid + 1";
+            $uniqueIdColumn2 = "(SELECT @rowid := 0) as row, ";
+        }
+        return [$uniqueIdColumn,$uniqueIdColumn2];
     }
 }
