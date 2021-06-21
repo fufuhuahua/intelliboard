@@ -85,9 +85,13 @@ $PAGE->requires->css('/local/intelliboard/assets/css/multiple-select.css');
 
 $ids = explode(",", $id);
 $cohort = intelliboard_pf_cohort();
+$cohorts = intelliboard_pf_cohorts();
 $fields = intelliboard_pf_fields($cohort->id);
 $widgets = intelliboard_pf_widgets($id, $cohort->id);
 
+if (!isset($USER->pcid) and $cohorts and count($cohorts) > 1) {
+	redirect(new moodle_url("/local/intelliboard/pf/init.php"));
+}
 
 $fieldsMenu = [];
 foreach ($fields as $field) {
@@ -123,7 +127,11 @@ echo $OUTPUT->header();
 		<form class="intelliboard-pf-head" id="fields" action="" method="get">
 		  <div class="form-group">
 		    <label>Franchise Group:</label>
-		    <div class="value"><?php echo $cohort->name; ?></div>
+		    <div class="value"><?php echo $cohort->name; ?>
+					<?php if(isset($USER->pcid) and $cohorts and count($cohorts) > 1): ?>
+						<a href="<?php echo new moodle_url("/local/intelliboard/pf/init.php"); ?>">Change</a>
+					<?php endif; ?>
+				</div>
 		  </div>
 
 			<div class="form-group">

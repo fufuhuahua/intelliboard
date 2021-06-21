@@ -44,11 +44,20 @@ function intelliboard_pf_profile($userid, $courseid)
       FROM {user} u, {course} c
         WHERE u.id = :userid AND c.id = :courseid", ['userid' => $userid, 'courseid' => $courseid]);
 }
+function intelliboard_pf_cohorts()
+{
+    global $DB, $USER;
+
+    return $DB->get_records_sql("SELECT c.id, c.name
+      FROM {cohort_members} m, {cohort} c
+        WHERE idnumber <> 'ClubManager' AND m.userid = :userid AND c.id = m.cohortid", ['userid' => $USER->id]);
+}
 function intelliboard_pf_cohort()
 {
     global $DB, $USER;
-    if (!is_siteadmin()) {
 
+    if (isset($USER->pcid) and $USER->pcid) {
+      return $DB->get_record("cohort", ['id' => $USER->pcid]);
     }
     return $DB->get_record_sql("SELECT c.id, c.name
       FROM {cohort_members} m, {cohort} c

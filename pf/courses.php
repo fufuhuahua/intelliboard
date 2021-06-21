@@ -43,7 +43,7 @@ require_capability('local/intelliboard:pf', $sitecontext);
 if ($id) {
 	$USER->pfid = $id;
 } else {
-	$$id = $USER->pfid??0;
+	$id = $USER->pfid??0;
 }
 
 $params = array(
