@@ -247,7 +247,7 @@ class intelliboard_pf_courses_table extends table_sql {
             LEFT JOIN {grade_items} gi ON gi.itemtype = 'course' AND gi.courseid = c.id
             LEFT JOIN {grade_grades} g ON g.userid = u.userid AND g.itemid = gi.id AND g.finalgrade IS NOT NULL
             ";
-        $where = "ue.id > 0 AND ue.status = 0 AND e.status = 0 AND u.deleted = 0 AND u.suspended = 0 $sql";
+        $where = "ue.id > 0 AND ue.status = 0 AND e.status = 0 $sql";
 
         $this->set_sql($fields, $from, $where, $params);
         $this->define_baseurl($PAGE->url);
@@ -393,7 +393,7 @@ class intelliboard_pf_activities_table extends table_sql {
           JOIN {user_enrolments} ue ON ue.userid = u.userid
           JOIN {enrol} e ON e.id = ue.enrolid
           JOIN {course} c ON c.id = e.courseid";
-      $where = "ue.id > 0 AND ue.status = 0 AND e.status = 0 AND u.deleted = 0 AND u.suspended = 0  $sql";
+      $where = "ue.id > 0 AND ue.status = 0 AND e.status = 0 $sql";
 
       $this->set_sql($fields, $from, $where, $params);
       $this->define_baseurl($PAGE->url);
