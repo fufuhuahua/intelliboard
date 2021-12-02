@@ -3858,6 +3858,7 @@ class local_intelliboard_external extends external_api {
             "enrolment",
             "c.startdate",
             "started",
+            "lit.lastaccess",
             "grade",
             "grade",
             "cmc.completed",
@@ -3954,6 +3955,7 @@ class local_intelliboard_external extends external_api {
                               CONCAT(e.enrol, '(', e.name, ')')
                     END) AS enrolment,
                     c.startdate,
+                    lit.lastaccess,
                     git.average,
                     {$grade_single} AS grade,
                     {$grade_single_raw} AS grade_raw,
@@ -3980,7 +3982,7 @@ class local_intelliboard_external extends external_api {
           LEFT JOIN {course_completion_criteria} cri ON cri.course = c.id AND cri.criteriatype = 6
           LEFT JOIN {grade_items} gi ON gi.courseid = c.id AND gi.itemtype = 'course'
           LEFT JOIN {grade_grades} g ON g.itemid = gi.id AND g.userid =u.id
-          LEFT JOIN (SELECT lit.userid, lit.courseid, SUM(lit.timespend) as timespend, SUM(lit.visits) as visits
+          LEFT JOIN (SELECT lit.userid, lit.courseid, SUM(lit.timespend) as timespend, SUM(lit.visits) as visits, MAX(lit.lastaccess) as lastaccess
                        FROM {local_intelliboard_tracking} lit
                       WHERE lit.courseid > 0 {$course_filter2}
                    GROUP BY lit.courseid, lit.userid
@@ -9665,6 +9667,7 @@ class local_intelliboard_external extends external_api {
         $sql_filter .= $this->get_teacher_sql($params, array("c.id"=>"courses", "u.id"=>"users"));
         $grade_single = intelliboard_grade_sql(false, $params,'gg.');
         $sql_join = $this->get_suspended_sql($params);
+        $sql_course_filter1 = !empty($params->courseid) ? "WHERE " . $this->get_filter_in_sql($params->courseid,'a.course', false) : '';
 
         $sql_teacher_roles = $this->get_filter_in_sql($params->teacher_roles, "ra.roleid");
         if ($CFG->dbtype == 'pgsql') {
@@ -9713,8 +9716,10 @@ class local_intelliboard_external extends external_api {
                                                          stg.visible = 1 AND stg.attendanceid = ats.attendanceid
                   LEFT JOIN (SELECT ast1.attendanceid, MAX(ast1.grade) AS maxgrade, ast1.setnumber
                                FROM {attendance_statuses} ast1
+                               JOIN {attendance} a1 ON a1.id = ast1.attendanceid " . $this->get_filter_in_sql($params->courseid,'a1.course') . "
                            GROUP BY ast1.attendanceid, ast1.setnumber
                             ) stm ON stm.attendanceid = a.id AND stm.setnumber = ats.statusset
+                    $sql_course_filter1
                    GROUP BY a.course, atl.studentid
                     ) attn ON attn.course = c.id
                JOIN {user} u ON u.id = attn.studentid
@@ -9733,6 +9738,9 @@ class local_intelliboard_external extends external_api {
             $params,
             false
         );
+        if (!empty($params->count_report_rows)) {
+            return $data;
+        }
 
         foreach($data AS &$item){
             if(isset($params->scale_real) and $params->scale_real){
@@ -13144,12 +13152,18 @@ class local_intelliboard_external extends external_api {
             if ($params->custom4 == 1) {
                 $sql_filter_compl = " AND ccpl.completed_courses IS NOT NULL";
             } elseif ($params->custom4 == 2) {
-                $sql_filter_compl = " AND ccpl.completed_courses IS NULL";
+                $sql_filter_compl = " AND (ccpl.completed_courses IS NULL OR ccpl.completed_courses < " . count($courses) . ")";
             } elseif ($params->custom4 == 3) {
                 if ($CFG->dbtype == 'pgsql') {
-                    $sql_filter_compl = " AND (ccpl.last_completed > extract(epoch from (now() - interval '10 days')) or ccpl.last_completed IS NULL)";
+                    $sql_filter_compl = " AND (
+                        ccpl.last_completed > extract(epoch from (now() - interval '10 days')) OR ccpl.completed_courses < " . count($courses) . "
+                        OR ccpl.last_completed IS NULL
+                    )";
                 } else {
-                    $sql_filter_compl = " AND (ccpl.last_completed > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 10 DAY)) or ccpl.last_completed IS NULL)";
+                    $sql_filter_compl = " AND (
+                        ccpl.last_completed > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 10 DAY)) OR ccpl.completed_courses < " . count($courses) . "
+                        OR ccpl.last_completed IS NULL
+                    )";
                 }
             }
 
@@ -18012,7 +18026,6 @@ class local_intelliboard_external extends external_api {
         global $DB;
         $daysdiff = floor(($params->timefinish - $params->timestart)/(3600 * 24));
         $sql_filter = $this->get_teacher_sql($params, ["lit.userid" => "users", "lit.courseid" => "courses"]);
-        $userfilter = '';
 
         if($daysdiff <= 1){
             $groupkey = 'daytime';
@@ -18030,26 +18043,19 @@ class local_intelliboard_external extends external_api {
 
         $this->params['timestart'] = $params->timestart;
         $this->params['timefinish'] = $params->timefinish;
-        $sql = $this->get_filter_in_sql($params->custom4, 'roleid');
-
-        $users = $DB->get_records_sql(
-            "SELECT DISTINCT userid
-               FROM {role_assignments}
-              WHERE contextid = :context $sql",
-            array_merge($this->params,['context' => context_system::instance()->id])
-        );
-
-        if (count($users)) {
-            $userfilter = $this->get_filter_in_sql(array_keys($users), 'lit.userid');
-        } else {
-            $userfilter = ' AND lit.userid = -1';
-        }
+        $role_filter = $this->get_filter_in_sql($params->custom4,'ra.roleid', false);
 
         return $DB->get_records_sql(
             "SELECT {$groupfield} AS timepointval, SUM(t.users) AS users
                FROM (SELECT lil.timepoint, COUNT(DISTINCT lit.userid) AS users
                        FROM {local_intelliboard_tracking} lit
-                       JOIN {local_intelliboard_logs} lil ON lit.id = lil.trackid {$userfilter}
+                       JOIN {local_intelliboard_logs} lil ON lit.id = lil.trackid 
+                       JOIN (SELECT ra.userid, ctx.instanceid
+                               FROM {role_assignments} ra
+                               JOIN {context} ctx ON ctx.id = ra.contextid AND contextlevel = 50 
+                              WHERE {$role_filter}
+                           GROUP BY ra.userid, ctx.instanceid
+                            ) ur ON ur.userid = lit.userid AND ur.instanceid = lit.courseid
                       WHERE lit.id > 0 {$sql_filter}
                    GROUP BY lil.timepoint
                     ) t
@@ -23490,7 +23496,7 @@ class local_intelliboard_external extends external_api {
         $sql_quiz_courses = $this->get_filter_in_sql($params->courseid, "q.course");
         $sql_teacher_roles = $this->get_filter_in_sql($params->teacher_roles, "ra.roleid");
 
-        $sql_filter_roles = !empty($params->custom2) ? "WHERE " . $this->get_filter_in_sql($params->custom2, "e.roleid", false) : '';
+        $sql_filter_roles = !empty($params->custom2) ? $this->get_filter_in_sql($params->custom2, "ra.roleid", true) : '';
 
         $teachersgroupconcat = get_operator('GROUP_CONCAT', "CONCAT(u.firstname, ' ', u.lastname)", ['separator' => ', ']);
         $sqljoins = $this->group_aggregation('u.id', 'c.id', $params);
@@ -23527,7 +23533,8 @@ class local_intelliboard_external extends external_api {
                 JOIN (SELECT e.courseid, ue1.userid, MIN(ue1.status) AS status
                       FROM {enrol} e
                       JOIN {user_enrolments} ue1 ON ue1.enrolid = e.id
-                      {$sql_filter_roles}
+                      JOIN {context} cx ON cx.instanceid = e.courseid AND cx.contextlevel = 50
+                      JOIN {role_assignments} ra ON ra.contextid = cx.id AND ra.userid = ue1.userid {$sql_filter_roles}
                   GROUP BY e.courseid, ue1.userid
                  ) ue ON ue.courseid = c.id
                 JOIN {user} u ON ue.userid = u.id
