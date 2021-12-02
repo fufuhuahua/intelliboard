@@ -50,7 +50,7 @@ function intelliboard_pf_cohorts()
 
     return $DB->get_records_sql("SELECT c.id, c.name
       FROM {cohort_members} m, {cohort} c
-        WHERE idnumber <> 'ClubManager' AND m.userid = :userid AND c.id = m.cohortid", ['userid' => $USER->id]);
+        WHERE idnumber <> 'ClubManager' AND idnumber <> 'RegionalManager' AND m.userid = :userid AND c.id = m.cohortid", ['userid' => $USER->id]);
 }
 function intelliboard_pf_cohort()
 {
@@ -61,7 +61,7 @@ function intelliboard_pf_cohort()
     }
     return $DB->get_record_sql("SELECT c.id, c.name
       FROM {cohort_members} m, {cohort} c
-        WHERE idnumber <> 'ClubManager' AND m.userid = :userid AND c.id = m.cohortid LIMIT 1", ['userid' => $USER->id]);
+        WHERE idnumber <> 'ClubManager' AND idnumber <> 'RegionalManager' AND m.userid = :userid AND c.id = m.cohortid LIMIT 1", ['userid' => $USER->id]);
 }
 function intelliboard_pf_fields($id)
 {
