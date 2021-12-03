@@ -153,6 +153,14 @@ echo $OUTPUT->header();
 				<input type="hidden" name="sesskey" value="<?php p(sesskey()); ?>" />
 				<input name="id" type="hidden" value="<?php echo $id; ?>" />
 				<span class="pull-left"><input class="form-control" name="search" type="text" value="<?php echo format_string($search); ?>" placeholder="<?php echo get_string('type_here', 'local_intelliboard');?>" /></span>
+
+				<span class="pull-left">
+					<select class="form-control" name="status">
+						<option value="1" <?php echo ($status == 1) ? 'selected' : ''; ?>>Active</option>
+						<option value="2" <?php echo ($status == 2) ? 'selected' : ''; ?>>Suspended</option>
+					</select>
+				</span>
+
 				<button id="search" class="btn btn-default"><?php echo get_string('search');?></button>
 			</form>
 		</div>

@@ -198,9 +198,14 @@ class intelliboard_pf_courses_table extends table_sql {
 
         $sql = "";
         $params = [];
-        if ($status) {
-          $sql .= ($status == 2) ? " AND u.suspended = 1" : " AND u.suspended = 0";
+
+
+        if ($status == 2) {
+          $sqlstatus = " AND u.suspended = 1 or u.deleted = 1";
+        } else {
+          $sqlstatus = " AND u.suspended = 0 AND u.deleted = 0";
         }
+
         if ($search) {
             $where = [];
             foreach (['u.firstname', 'u.lastname', 'u.email', 'course'] as $key=>$column) {
@@ -238,7 +243,7 @@ class intelliboard_pf_courses_table extends table_sql {
                   (SELECT d2.data FROM {user_info_field} f2, {user_info_data} d2 WHERE f2.shortname = 'JobTitle' AND d2.fieldid = f2.id AND d2.userid = u.id) as title,
                   '' AS actions
             FROM {user} u, {user_info_field} f,{user_info_data} d
-            WHERE u.id = d.userid AND f.id = d.fieldid AND u.suspended = 0 AND u.deleted = 0 $sqlfilter) u
+            WHERE u.id = d.userid AND f.id = d.fieldid $sqlstatus $sqlfilter) u
             JOIN {user_enrolments} ue ON ue.userid = u.userid
             JOIN {enrol} e ON e.id = ue.enrolid
             JOIN {course} c ON c.id = e.courseid
@@ -325,7 +330,7 @@ class intelliboard_pf_activities_table extends table_sql {
       $completions = ($completions) ? $completions : 1;
 
       if ($cids) {
-        if ($modules = $DB->get_records_sql("SELECT m.id, m.name FROM {modules} m WHERE m.visible = 1 $sql_mods", $this->params)) {
+        if ($modules = $DB->get_records_sql("SELECT m.id, m.name FROM {modules} m WHERE m.visible = 1")) {
           $sql_columns = "";
           foreach($modules as $module){
               $sql_columns .= " WHEN m.name='{$module->name}' THEN (SELECT name FROM {".$module->name."} WHERE id = cm.instance)";
@@ -350,9 +355,15 @@ class intelliboard_pf_activities_table extends table_sql {
 
       $sql = "";
       $params = [];
-      if ($status) {
-        $sql .= ($status == 2) ? " AND u.suspended = 1" : " AND u.suspended = 0";
+
+      if ($status == 2) {
+        $sqlstatus = " AND u.suspended = 1 or u.deleted = 1";
+      } else {
+        $sqlstatus = " AND u.suspended = 0 AND u.deleted = 0";
       }
+
+
+
       if ($search) {
           $where = [];
           foreach (['u.firstname', 'u.lastname', 'u.email', 'course'] as $key=>$column) {
@@ -389,7 +400,7 @@ class intelliboard_pf_activities_table extends table_sql {
                 (SELECT d2.data FROM {user_info_field} f2, {user_info_data} d2 WHERE f2.shortname = 'JobTitle' AND d2.fieldid = f2.id AND d2.userid = u.id) as title,
                 '' AS actions
           FROM {user} u, {user_info_field} f,{user_info_data} d
-          WHERE u.id = d.userid AND f.id = d.fieldid AND u.suspended = 0 AND u.deleted = 0 $sqlfilter) u
+          WHERE u.id = d.userid AND f.id = d.fieldid $sqlstatus $sqlfilter) u
           JOIN {user_enrolments} ue ON ue.userid = u.userid
           JOIN {enrol} e ON e.id = ue.enrolid
           JOIN {course} c ON c.id = e.courseid";
