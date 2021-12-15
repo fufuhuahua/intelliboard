@@ -70,7 +70,6 @@ $ids = explode(",", $id);
 $cohort = intelliboard_pf_cohort();
 $courses = intelliboard_pf_courses();
 $fields = intelliboard_pf_fields($cohort->id);
-$widgets = intelliboard_pf_widgets($id, $cohort->id);
 
 
 
@@ -78,9 +77,6 @@ $categories = [];
 foreach ($courses as $course) {
 	$categories[$course->category][] = $course;
 }
-//echo "<pre>"; print_r($categories); exit;
-
-
 $fieldsMenu = [];
 foreach ($fields as $field) {
 	$fieldsMenu[$field->fieldid] = ["name" => $field->name];

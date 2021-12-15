@@ -87,7 +87,6 @@ $ids = explode(",", $id);
 $cohort = intelliboard_pf_cohort();
 $cohorts = intelliboard_pf_cohorts();
 $fields = intelliboard_pf_fields($cohort->id);
-$widgets = intelliboard_pf_widgets($id, $cohort->id);
 
 if (!isset($USER->pcid) and $cohorts and count($cohorts) > 1) {
 	redirect(new moodle_url("/local/intelliboard/pf/init.php"));
@@ -151,30 +150,6 @@ echo $OUTPUT->header();
 		</form>
 	</div>
 	<?php if($id): ?>
-		<?php if($widgets): ?>
-		<div class="intelliboard-pf-widgets clearfix">
-			<div class="left">
-				<h3>Recently Created</h3>
-				<div class="widget-wrap">
-				<div class="widget" id="widget1"></div>
-				</div>
-			</div>
-			<div class="middle">
-				<h3>Users Activity</h3>
-				<div class="widget-wrap">
-				<div class="widget" id="widget2"></div>
-				</div>
-			</div>
-
-			<div class="right">
-				<h3>Most active users </h3>
-				<div class="widget-wrap">
-				<div class="widget" id="widget3"></div>
-				</div>
-			</div>
-		</div>
-	<?php endif; ?>
-
 
 	<h2 class="intelliboard-pf-header">User Details</h2>
 	<div class="intelliboard-pf-content pf-table">
@@ -200,7 +175,6 @@ echo $OUTPUT->header();
 
 	<?php include("../views/footer.php"); ?>
 </div>
-<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script type="text/javascript">
 	jQuery(document).ready(function(){
 		$(".userstatus").click(function(){
@@ -230,60 +204,6 @@ echo $OUTPUT->header();
 			location = "<?php echo new moodle_url("/local/intelliboard/pf/index.php"); ?>?id="+id;
 		});
 	});
-
-
-<?php if($widgets): ?>
-	google.charts.load("current", {packages:["corechart"]});
-	google.charts.setOnLoadCallback(function() {
-		var chart = new google.visualization.PieChart(document.getElementById('widget1'));
-		chart.draw(google.visualization.arrayToDataTable([
-			['Name', 'Accounts'],
-			<?php $accounts = 0; foreach($widgets->widget1 as $item): $accounts = (int)$item->users + $accounts; ?>
-			['<?php echo $item->title; ?>', <?php echo (int)$item->users; ?>],
-			<?php endforeach; ?>
-		]), {
-			legent:{
-				position: 'top'
-			},
-			pieSliceTextStyle: {
-            color: 'black',
-          },
-			title: 'New Users: <?php echo (int)$accounts; ?>',
-			pieHole: 0.4,
-		});
-	});
-	google.charts.setOnLoadCallback(function() {
-		var chart = new google.visualization.PieChart(document.getElementById('widget2'));
-		chart.draw(google.visualization.arrayToDataTable([
-			['Name', 'Accounts'],
-			['30 days',<?php echo (int)$widgets->time30; ?>],
-			['60 days',<?php echo (int)$widgets->time60; ?>],
-			['90 days',<?php echo (int)$widgets->time90; ?>],
-			['>90 days',<?php echo (int)$widgets->time100; ?>]
-		]), {
-			title: 'Total Users:  <?php echo $widgets->time30+$widgets->time60+$widgets->time90+$widgets->time100; ?>',
-			pieHole: 0.4,
-		});
-	});
-
-	google.charts.setOnLoadCallback(function() {
-		var chart = new google.visualization.PieChart(document.getElementById('widget3'));
-		var dataTable = new google.visualization.DataTable();
-        dataTable.addColumn('string', 'User');
-        dataTable.addColumn('number', 'Time');
-        // A column for custom tooltip content
-        dataTable.addColumn({type: 'string', role: 'tooltip'});
-        dataTable.addRows([
-					<?php foreach($widgets->widget3 as $item): ?>
-					['<?php echo "$item->firstname $item->lastname"; ?>', <?php echo (int)$item->timespend; ?>, 'Time spent: <?php echo seconds_to_time($item->timespend); ?>'],
-					<?php endforeach; ?>
-      ]);
-
-		chart.draw(dataTable, {
-			tooltip: {isHtml: true}
-		});
-	});
-	<?php endif; ?>
 
 </script>
 <?php endif; ?>

@@ -28,7 +28,6 @@ require_once($CFG->dirroot .'/local/intelliboard/locallib.php');
 require_once($CFG->dirroot .'/local/intelliboard/pf/lib.php');
 require_once($CFG->dirroot .'/local/intelliboard/pf/tables.php');
 
-
 $id = optional_param('id', 0, PARAM_SEQUENCE);
 $cids = optional_param('cids', 0, PARAM_SEQUENCE);
 $search = clean_raw(optional_param('search', '', PARAM_RAW));
@@ -46,15 +45,6 @@ if ($id) {
 	$id = $USER->pfid??0;
 }
 
-$params = array(
-	'do'=>'pf',
-	'mode'=> 1
-);
-$intelliboard = intelliboard($params);
-if (!isset($intelliboard) || !$intelliboard->token) {
-		throw new moodle_exception('invalidaccess', 'error');
-}
-
 $PAGE->set_url(new moodle_url("/local/intelliboard/pf/courses.php", array("id"=>$id, "cids" => $cids, "search"=>$search, "status"=>$status)));
 $PAGE->set_pagetype('courses');
 $PAGE->set_pagelayout('report');
@@ -70,26 +60,23 @@ $ids = explode(",", $id);
 $cohort = intelliboard_pf_cohort();
 $courses = intelliboard_pf_courses();
 $fields = intelliboard_pf_fields($cohort->id);
-$widgets = intelliboard_pf_widgets($id, $cohort->id);
-
-
-
 $categories = [];
 foreach ($courses as $course) {
 	$categories[$course->category][] = $course;
 }
-//echo "<pre>"; print_r($categories); exit;
-
-
+$filters = [];
 $fieldsMenu = [];
 foreach ($fields as $field) {
+	if (in_array($field->id, $ids)) {
+		$filters[] = $field;
+	}
 	$fieldsMenu[$field->fieldid] = ["name" => $field->name];
 }
 foreach ($fields as $field) {
 	$fieldsMenu[$field->fieldid]["items"][] = $field;
 }
 
-$table = new intelliboard_pf_courses_table('table', $search, $id, $cohort->id, $status, $cids);
+$table = new intelliboard_pf_courses_table('table', $search, $filters, $cohort->id, $status, $cids);
 $table->show_download_buttons_at(array(TABLE_P_BOTTOM));
 $table->is_downloadable(true);
 $table->is_downloading($download, 'report', get_string('report'));

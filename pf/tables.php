@@ -141,16 +141,13 @@ class intelliboard_pf_users_table extends table_sql {
 
 class intelliboard_pf_courses_table extends table_sql {
 
-    function __construct($uniqueid, $search = '', $ids = '', $cohortid = 0, $status = 0, $cids = '') {
+    function __construct($uniqueid, $search = '', $ids = [], $cohortid = 0, $status = 0, $cids = '') {
         global $CFG, $PAGE, $DB, $USER;
 
         parent::__construct($uniqueid);
 
         $headers = array();
         $columns = array();
-
-        //$columns[] =  'username';
-        //$headers[] =  get_string('username');
 
         $columns[] =  'firstname';
         $headers[] =  get_string('firstname');
@@ -164,17 +161,11 @@ class intelliboard_pf_courses_table extends table_sql {
         $columns[] =  'data';
         $headers[] =  'Club Location';
 
-        //$columns[] =  'title';
-        //$headers[] =  'Job Title';
-
         $columns[] =  'course';
         $headers[] =  'Course name';
 
         $columns[] =  'enrolled';
         $headers[] =  'Enrolled';
-
-        //$columns[] =  'graded';
-        //$headers[] =  'Graded';
 
         $columns[] =  'grade';
         $headers[] =  'Grade';
@@ -188,71 +179,75 @@ class intelliboard_pf_courses_table extends table_sql {
         $columns[] =  'timeaccess';
         $headers[] =  'Last Access';
 
-        if (!optional_param('download', '', PARAM_ALPHA)) {
-          //$columns[] =  'actions';
-          //$headers[] =  "Certificate";
-        }
-
         $this->define_headers($headers);
         $this->define_columns($columns);
 
         $sql = "";
         $params = [];
 
-
-        if ($status == 2) {
-          $sqlstatus = " AND u.suspended = 1 or u.deleted = 1";
-        } else {
-          $sqlstatus = " AND u.suspended = 0 AND u.deleted = 0";
-        }
-
         if ($search) {
             $where = [];
-            foreach (['u.firstname', 'u.lastname', 'u.email', 'course'] as $key=>$column) {
+            foreach (['u.firstname', 'u.lastname', 'u.email', 'c.fullname'] as $key=>$column) {
               $where[] = $DB->sql_like($column, ":col".$key, false, false);
               $params["col".$key] = "%". $search ."%";
             }
             $sql .= ' AND ('.implode(' OR ',$where).')';
         }
-        $sqlfilter = "";
         if ($cohortid) {
-          $sqlfilter .= ' AND u.id IN (SELECT userid FROM {cohort_members} WHERE cohortid = :cohortid)';
+          $sql .= ' AND u.id IN (SELECT userid FROM {cohort_members} WHERE cohortid = :cohortid)';
           $params["cohortid"] = $cohortid;
         }
         if ($cids) {
           $sql .= " AND c.id IN ($cids)";
         } else {
-          $sql .= " AND c.id IN (0)";
+          $sql .= " AND c.id IN (0)"; //hide all
         }
-
         if ($ids) {
-          $data = $DB->get_records_sql("SELECT * FROM {user_info_data} WHERE id IN ($ids)");
           $where = [];
-          foreach ($data as $item) {
-              $where[] = "(" . $DB->sql_like("d.data", ":col".$item->id, false, false) . " AND d.fieldid = $item->fieldid)";
-              $params["col".$item->id] = "%". $item->data ."%";
+          $fieldid = 0;
+          foreach ($ids as $item) {
+              $fieldid = $item->fieldid;
+              $where[] = $DB->sql_like("d.data", ":col".$item->id, false, false);
+              $params["col".$item->id] = $item->data;
           }
-          $sqlfilter = ' AND ('.implode(' OR ',$where).')';
+          $sqldata = "AND d.fieldid = $fieldid";
+          $sqldata .= ' AND ('.implode(' OR ',$where).')';
         } else {
-          $sqlfilter = ' AND u.id = 0';
+          $sqldata = ' AND d.id = 0'; //hide all
+        }
+        if ($status == 2) {
+          $sql .= " AND u.suspended = 1";
+        } else {
+          $sql .= " AND u.suspended = 0";
         }
         $grade_single = intelliboard_grade_sql();
 
-        $fields = "CONCAT(ue.id, '_', u.data) AS id,  (SELECT cm.id FROM {modules} m, {course_modules} cm, {course} c WHERE c.id = cm.course AND cm.visible = 1 AND m.name = 'customcert' AND cm.module = m.id AND cm.course = c.id LIMIT 1) AS certificate,  u.*, ue.timecreated AS enrolled, c.fullname AS course, e.courseid, cc.timecompleted AS completed, cc.timecompleted, ul.timeaccess, $grade_single AS grade, CASE WHEN g.timemodified > 0 THEN g.timemodified ELSE g.timecreated END AS graded";
-        $from = "(SELECT d.userid, u.username, u.firstname, u.lastname, u.email, u.suspended, u.timecreated, d.data,
-                  (SELECT d2.data FROM {user_info_field} f2, {user_info_data} d2 WHERE f2.shortname = 'JobTitle' AND d2.fieldid = f2.id AND d2.userid = u.id) as title,
-                  '' AS actions
-            FROM {user} u, {user_info_field} f,{user_info_data} d
-            WHERE u.id = d.userid AND f.id = d.fieldid $sqlstatus $sqlfilter) u
-            JOIN {user_enrolments} ue ON ue.userid = u.userid
-            JOIN {enrol} e ON e.id = ue.enrolid
+        $fields = "ue.id,
+                  ue.userid,
+                  ue.timecreated AS enrolled,
+                  u.firstname,
+                  u.lastname,
+                  u.email,
+                  d.data,
+                  c.fullname AS course,
+                  e.courseid,
+                  cc.timecompleted AS completed,
+                  cc.timecompleted,
+                  ul.timeaccess,
+                  $grade_single AS grade,
+                  (SELECT cm.id FROM {modules} m, {course_modules} cm WHERE m.name = 'customcert' AND cm.module = m.id AND cm.course = c.id LIMIT 1) AS certificate,
+                  '' AS actions";
+
+        $from = "{user_enrolments} ue
+            JOIN {enrol} e ON e.id = ue.enrolid AND e.status = 0
             JOIN {course} c ON c.id = e.courseid
-            LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = u.userid
-            LEFT JOIN {user_lastaccess} ul ON ul.courseid = c.id AND ul.userid = u.userid
+            JOIN {user} u ON u.id = ue.userid
+            JOIN {user_info_data} d ON d.userid = u.id $sqldata
+            LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = u.id
+            LEFT JOIN {user_lastaccess} ul ON ul.courseid = c.id AND ul.userid = u.id
             LEFT JOIN {grade_items} gi ON gi.itemtype = 'course' AND gi.courseid = c.id
-            LEFT JOIN {grade_grades} g ON g.userid = u.userid AND g.itemid = gi.id AND g.finalgrade IS NOT NULL
-            ";
-        $where = "ue.id > 0 AND ue.status = 0 AND e.status = 0 $sql";
+            LEFT JOIN {grade_grades} g ON g.userid = u.id AND g.itemid = gi.id AND g.finalgrade IS NOT NULL";
+        $where = "ue.status = 0 $sql";
 
         $this->set_sql($fields, $from, $where, $params);
         $this->define_baseurl($PAGE->url);
@@ -300,9 +295,6 @@ class intelliboard_pf_activities_table extends table_sql {
       $headers = array();
       $columns = array();
 
-      //$columns[] =  'username';
-      //$headers[] =  get_string('username');
-
       $columns[] =  'firstname';
       $headers[] =  get_string('firstname');
 
@@ -347,9 +339,6 @@ class intelliboard_pf_activities_table extends table_sql {
         }
       }
 
-      //$columns[] =  'etc';
-      //$headers[] =  'ETC';
-
       $this->define_headers($headers);
       $this->define_columns($columns);
 
@@ -357,9 +346,9 @@ class intelliboard_pf_activities_table extends table_sql {
       $params = [];
 
       if ($status == 2) {
-        $sqlstatus = " AND u.suspended = 1 or u.deleted = 1";
+        $sqlstatus = " AND u.suspended = 1";
       } else {
-        $sqlstatus = " AND u.suspended = 0 AND u.deleted = 0";
+        $sqlstatus = " AND u.suspended = 0";
       }
 
 
