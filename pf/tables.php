@@ -72,10 +72,10 @@ class intelliboard_pf_users_table extends table_sql {
         $this->define_headers($headers);
         $this->define_columns($columns);
 
-        $sql = "";
+        $sqlfilter = "";
         $params = [];
         if ($status) {
-          $sql .= ($status == 2) ? " AND u.suspended = 1" : " AND u.suspended = 0";
+          $sqlfilter .= ($status == 2) ? " AND u.suspended = 1" : " AND u.suspended = 0";
         }
         if ($search) {
             $where = [];
@@ -83,9 +83,9 @@ class intelliboard_pf_users_table extends table_sql {
               $where[] = $DB->sql_like("u." . $column, ":".$column, false, false);
               $params[$column] = "%". $search ."%";
             }
-            $sql .= ' AND ('.implode(' OR ',$where).')';
+            $sqlfilter .= ' AND ('.implode(' OR ',$where).')';
         }
-        $sqlfilter = "";
+
         if ($cohortid) {
           $sqlfilter .= ' AND u.id IN (SELECT userid FROM {cohort_members} WHERE cohortid = :cohortid)';
           $params["cohortid"] = $cohortid;
@@ -97,17 +97,28 @@ class intelliboard_pf_users_table extends table_sql {
               $where[] = "(" . $DB->sql_like("d.data", ":col".$item->id, false, false) . " AND d.fieldid = $item->fieldid)";
               $params["col".$item->id] = "%". $item->data ."%";
           }
-          $sqlfilter = ' AND ('.implode(' OR ',$where).')';
+          $sqlfilter .= ' AND ('.implode(' OR ',$where).')';
         } else {
           $sqlfilter = ' AND u.id = 0';
         }
-        $fields = "u.*";
-        $from = "(SELECT d.id, d.userid, u.username, u.lastlogin, u.firstname, u.lastname, u.email, u.suspended, u.timecreated, d.data,
+        $fields = "d.id,
+                  d.userid,
+                  u.username,
+                  u.lastlogin,
+                  u.firstname,
+                  u.lastname,
+                  u.email,
+                  u.suspended,
+                  u.timecreated,
+                  d.data,
                   (SELECT d2.data FROM {user_info_field} f2, {user_info_data} d2 WHERE f2.shortname = 'JobTitle' AND d2.fieldid = f2.id AND d2.userid = u.id) as title,
-                  '' AS actions
-            FROM {user} u, {user_info_field} f,{user_info_data} d
-            WHERE u.id = d.userid AND u.deleted = 0 AND u.suspended = 0 AND f.id = d.fieldid $sqlfilter) u";
-        $where = "id > 0 $sql";
+                  '' AS actions";
+
+        $from = "{user} u
+                JOIN {user_info_data} d ON d.userid =  u.id
+                JOIN {user_info_field} f ON f.id = d.fieldid";
+
+        $where = "u.deleted = 0 $sqlfilter";
 
         $this->set_sql($fields, $from, $where, $params);
         $this->define_baseurl($PAGE->url);
