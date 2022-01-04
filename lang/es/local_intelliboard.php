@@ -661,6 +661,7 @@ $string['sslversion_desc'] = "Pasar un campo Long como parámetro como para cont
 $string['debug'] = "Depurar solicitudes CURL";
 $string['debug_desc'] = "";
 $string['instructor_show_suspended_enrollments'] = 'Show suspended enrollments';
+$string['instructor_hide_suspended_enrollments'] = 'Hide suspended enrollments';
 /* IntelliCart */
 $string['intellicart'] = "Integración IntelliCart";
 $string['intellicart_desc'] = "Permitir a los estudiantes ver informes de IntelliCart";
