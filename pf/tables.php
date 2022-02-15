@@ -79,7 +79,7 @@ class intelliboard_pf_users_table extends table_sql {
         }
         if ($search) {
             $where = [];
-            foreach ($columns as $column) {
+            foreach (['firstname', 'lastname', 'email'] as $column) {
               $where[] = $DB->sql_like("u." . $column, ":".$column, false, false);
               $params[$column] = "%". $search ."%";
             }
